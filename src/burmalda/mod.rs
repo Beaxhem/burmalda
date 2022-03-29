@@ -127,7 +127,9 @@ impl Burmalda {
     }
 
     fn element_to_print_with_bombs<'a>(&self, x: usize, y: usize) -> &'a str {
-        if self.bombs.get(x) == y { "*" } else if self.steps[x] == y { "X" } else { " " }
+        let is_bomb = self.bombs.get(x) == y;
+        let is_step = self.steps[x] == y;
+        if is_bomb && is_step { "0" } else if is_bomb { "*" } else if is_step { "X" } else { " " }
     }
 
 }
