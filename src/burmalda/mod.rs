@@ -1,9 +1,9 @@
 mod bombs;
 mod bet;
+mod guess;
+mod grid;
 
-use std;
-
-use crate::{Account, cli::CommandLine, burmalda::bombs::Bombs, burmalda::bet::Bet};
+use crate::{Account, cli::CommandLine, burmalda::{bombs::Bombs, bet::Bet, guess::Guess, grid::Grid}};
 
 pub const NUMBER_OF_STEPS: usize = 8;
 pub const NUMBER_OF_LINES: usize = 5;
@@ -11,7 +11,7 @@ pub const NUMBER_OF_LINES: usize = 5;
 enum State {
     InvalidInput,
     LostGame,
-    WonGame(f32),
+    WonGame,
     NextStep
 }
 
@@ -37,39 +37,36 @@ impl Burmalda {
 
         loop {
             self.print_game(PrintVariant::Normal);
-            if let Some(input) = Burmalda::guess() {
-                match self.check_input(input) {
-                    State::InvalidInput => { },
-                    State::WonGame(coefficient) => {
-                        CommandLine::clear_terminal();
-                        self.print_game(PrintVariant::Bombs);
-                        println!("You won!");
-                        account.balance += bet as f32 * coefficient;
-                        break; 
-                    },
-                    State::LostGame => {
-                        CommandLine::clear_terminal();
-                        self.print_game(PrintVariant::Bombs);
-                        println!("You lost!");
-
-                        account.balance -= bet as f32;
-                        break;
-                    },
-                    State::NextStep => {
-                        self.current_step += 1;
+            match Guess::new() {
+                Guess::Position(guess) => {
+                    match self.check_input(guess) {
+                        State::InvalidInput => { },
+                        State::WonGame => {
+                            CommandLine::clear_terminal();
+                            self.print_game(PrintVariant::Bombs);
+                            println!("You won!");
+                            self.win_game(bet, account);
+                            break; 
+                        },
+                        State::LostGame => {
+                            CommandLine::clear_terminal();
+                            self.print_game(PrintVariant::Bombs);
+                            println!("You lost!");
+    
+                            account.balance -= bet as f32;
+                            break;
+                        },
+                        State::NextStep => {
+                            self.current_step += 1;
+                        }
                     }
-                }
+                },
+                Guess::Quit => {
+                    self.win_game(bet, account);
+                    break;
+                },
             }
             CommandLine::clear_terminal();
-        }
-    }
-
-    fn guess() -> Option<usize> {
-        let mut input = String::new();
-        if let (Ok(_), Ok(input)) = (std::io::stdin().read_line(&mut input), input.trim().parse::<usize>()) {
-            Some(input)
-        } else {
-            None
         }
     }
 
@@ -81,9 +78,7 @@ impl Burmalda {
         self.steps[self.current_step] = input;
 
         if self.current_step == NUMBER_OF_STEPS - 1 {
-            State::WonGame(
-                Burmalda::coefficient_for_step(self.current_step)
-            )
+            State::WonGame
         } else if self.bombs.get(self.current_step) == input {
             State::LostGame
         } else {
@@ -102,6 +97,11 @@ impl Burmalda {
         }
     }
 
+    fn win_game(&self, bet: f32, account: &mut Account) {
+        let coefficient = Burmalda::coefficient_for_step(self.current_step);
+        account.balance += bet as f32 * coefficient - bet; 
+    }
+
 }
 
 enum PrintVariant {
@@ -112,31 +112,14 @@ enum PrintVariant {
 impl Burmalda {
 
     fn print_game(&self, variant: PrintVariant) {
-        let mut y = 1;
-        for _ in 0..NUMBER_OF_LINES {
-            Burmalda::print_line();
-            print!("|");
-            for x in 0..NUMBER_OF_STEPS {
-                let to_print = match variant {
-                    PrintVariant::Normal => self.element_to_print(x, y),
-                    PrintVariant::Bombs => self.element_to_print_with_bombs(x, y)
-                };
-                print!(" {} |", to_print);
+        Grid::print(NUMBER_OF_STEPS, NUMBER_OF_LINES, |x, y| {
+            match variant {
+                PrintVariant::Normal => self.element_to_print(x, y),
+                PrintVariant::Bombs => self.element_to_print_with_bombs(x, y)
             }
-            print!("\n");
-            y += 1;
-        }
-        Burmalda::print_line();
-        print!("\n");
+        });    
+        
         Burmalda::print_coefficients();
-        print!("\n");
-    }
-
-    fn print_line() {
-        print!("+");
-        for _ in 0..NUMBER_OF_STEPS {
-            print!("---+");
-        }
         print!("\n");
     }
 
@@ -151,11 +134,11 @@ impl Burmalda {
 
 impl Burmalda {
 
-    fn element_to_print(&self, x: usize, y: usize) -> &str {
+    fn element_to_print<'a>(&self, x: usize, y: usize) -> &'a str {
         if self.steps[x] == y { "X" } else { " " }
     }
 
-    fn element_to_print_with_bombs(&self, x: usize, y: usize) -> &str {
+    fn element_to_print_with_bombs<'a>(&self, x: usize, y: usize) -> &'a str {
         if self.bombs.get(x) == y { "*" } else if self.steps[x] == y { "X" } else { " " }
     }
 
