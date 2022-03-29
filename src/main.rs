@@ -1,5 +1,6 @@
-mod burmalda;
 mod account;
+mod bet;
+mod burmalda;
 mod cli;
 
 use burmalda::Burmalda;

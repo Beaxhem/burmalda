@@ -1,9 +1,8 @@
 mod bombs;
-mod bet;
 mod guess;
 mod grid;
 
-use crate::{Account, cli::CommandLine, burmalda::{bombs::Bombs, bet::Bet, guess::Guess, grid::Grid}};
+use crate::{Account, bet::Bet, cli::CommandLine, burmalda::{bombs::Bombs, guess::Guess, grid::Grid}};
 
 pub const NUMBER_OF_STEPS: usize = 8;
 pub const NUMBER_OF_LINES: usize = 5;
@@ -33,24 +32,24 @@ impl Burmalda {
     }
 
     pub fn play(&mut self, account: &mut Account) {
-        let bet = Burmalda::ask_for_bet(account);
+        let bet = Bet::ask_for_bet(account);
 
         loop {
-            self.print_game(PrintVariant::Normal);
+            self.print_game(GameContent::Normal);
             match Guess::new() {
                 Guess::Position(guess) => {
                     match self.check_input(guess) {
                         State::InvalidInput => { },
                         State::WonGame => {
                             CommandLine::clear_terminal();
-                            self.print_game(PrintVariant::Bombs);
+                            self.print_game(GameContent::Bombs);
                             println!("You won!");
                             self.win_game(bet, account);
                             break; 
                         },
                         State::LostGame => {
                             CommandLine::clear_terminal();
-                            self.print_game(PrintVariant::Bombs);
+                            self.print_game(GameContent::Bombs);
                             println!("You lost!");
     
                             account.balance -= bet as f32;
@@ -86,17 +85,6 @@ impl Burmalda {
         }
     }
 
-    fn ask_for_bet(account: &Account) -> f32 {
-        loop {
-            let bet = Bet::ask();
-            if bet.0 > account.balance {
-                println!("You don't have enough money!");
-            } else {
-                return bet.0;
-            }
-        }
-    }
-
     fn win_game(&self, bet: f32, account: &mut Account) {
         let coefficient = Burmalda::coefficient_for_step(self.current_step);
         account.balance += bet as f32 * coefficient - bet; 
@@ -104,18 +92,18 @@ impl Burmalda {
 
 }
 
-enum PrintVariant {
+enum GameContent {
     Normal,
     Bombs
 }
 
 impl Burmalda {
 
-    fn print_game(&self, variant: PrintVariant) {
+    fn print_game(&self, content: GameContent) {
         Grid::print(NUMBER_OF_STEPS, NUMBER_OF_LINES, |x, y| {
-            match variant {
-                PrintVariant::Normal => self.element_to_print(x, y),
-                PrintVariant::Bombs => self.element_to_print_with_bombs(x, y)
+            match content {
+                GameContent::Normal => self.element_to_print(x, y),
+                GameContent::Bombs => self.element_to_print_with_bombs(x, y)
             }
         });    
         
